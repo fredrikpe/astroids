@@ -1,13 +1,13 @@
 
-CXX = g++-6
+CXX = g++
 
-CXXFLAGS = -O3 -Wall -std=c++14
+CXXFLAGS = -O0 -g -Wall -Wextra -Werror -std=c++14
 
 LDFLAGS = -lsfml-window -lsfml-graphics -lsfml-system
 
 RM = rm -f
 
-SOURCES = main.cpp gameobjects.cpp
+SOURCES = src/main.cpp src/gameobjects.cpp
 
 EXECUTABLE = astroids
 

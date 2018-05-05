@@ -1,18 +1,19 @@
 /*
-TDT4102, Spring 2017
-C++ Asteroid example using SFML
-
-Any questions, please email me at:
-fredrikpei@gmail.com
+* TDT4102, Spring 2017
+* C++ Asteroid example using SFML
+*
+* Any questions, please email me at:
+*   fredrikpei@gmail.com
 */
 
 #pragma once
 
-#include <SFML/Graphics.hpp>
 #include <string>
 #include <vector>
 #include <array>
 #include <iostream>
+#include <memory>
+
 
 using namespace std;
 
@@ -20,18 +21,21 @@ class Bullet;
 class Spaceship;
 class GameObject;
 
-enum Type { SPACESHIP, BULLET, ASTEROID};
+enum Type { SPACESHIP, BULLET, ASTEROID };
+enum class Direction { Up, Left, Right };
 
 class GameObject {
-private:
-    sf::Sprite sprite;
-    sf::Texture texture;
-    float rotationSpeed = 2.5f;
-    float velocity = 2.9f;
+  public:
+    float rotationSpeed = 1.f;
+    float velocity = 2.f;
     int radius = 2;
     int size = 0;
+    double pos_x;
+    double pos_y;
+    double rotation;
+    double scale;
 
-public:
+  public:
     static int width, height;
     bool deleteMe = false;
 
@@ -46,15 +50,13 @@ public:
     float getVelocity() const { return velocity; }
     int getRadius() const { return radius; }
     virtual unique_ptr<GameObject> spawnObject() { return nullptr; }
-    int getSize() { return size; }
+    int getSize() const { return size; }
+    double getScale() const { return scale; }
 
-	void goStraight();
-	void rotate(float angle);
-
-	sf::Sprite& getSprite() { return sprite; };
-	const sf::Sprite& getSprite() const { return sprite; };
-
-	void loadTexture(string filename, float scale);
+    void goStraight();
+    void rotateLeft() { rotate(rotationSpeed); }
+    void rotateRight() { rotate(-rotationSpeed); }
+    void rotate(float angle) { rotation += angle; }
 
     virtual void update();
     virtual bool isOutside() const;
@@ -65,11 +67,11 @@ public:
 
 
 class Spaceship : public GameObject {
-public:
-	Spaceship();
-	~Spaceship() {}
+  public:
+    Spaceship();
+    ~Spaceship() {}
 
-	void update();
+    void update();
 
     bool isOutside(int, int) const { return false; }
     unique_ptr<GameObject> spawnObject();
@@ -79,7 +81,7 @@ public:
 
 
 class Bullet : public GameObject {
-public:
+  public:
     Bullet(double rotation, float x, float y);
     ~Bullet() {}
 
@@ -87,8 +89,8 @@ public:
 };
 
 class Asteroid : public GameObject {
-public:
-    Asteroid(int size, sf::Vector2f pos);
+  public:
+    Asteroid(int size, int x, int y);
     ~Asteroid() {}
 
     unique_ptr<GameObject> spawnObject();
