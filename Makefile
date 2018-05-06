@@ -1,7 +1,7 @@
 
 CXX = g++
 
-CXXFLAGS = -O0 -g -Wall -Wextra -Werror -std=c++14
+CXXFLAGS = -O3 -g -Wall -Wextra -Werror -std=c++14
 
 LDFLAGS = -lsfml-window -lsfml-graphics -lsfml-system
 

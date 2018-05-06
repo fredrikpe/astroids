@@ -11,154 +11,115 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <cassert>
+#include <chrono>
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
-#include <cstdlib>
-#include <time.h>
-#include <memory>
 #include <thread>
-#include <chrono>
-#include <cassert>
-
+#include <time.h>
 
 using namespace std;
 
+struct AsteroidsGame {
+  AsteroidsGame() {
+    objects.clear();
+    objects.push_back(Spaceship{});
+    score = 0;
+    gameOver = false;
+  }
+
+  std::vector<GameObject> objects;
+  int score = 0;
+  bool gameOver = false;
+};
+
+// void CheckCollisions(std::vector<GameObject>& objects)
+
+Actions parseActions() {
+  return Actions{
+    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up),
+      sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left),
+      sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right),
+      sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space),
+  };
+}
+
+void updatePositions(std::vector<GameObject>& objects) {
+  auto size = objects.size();
+  for (size_t i=0; i<size; i++) {
+    auto spawn = objects[i].update(parseActions());
+    if (spawn != nullptr) {
+      objects.push_back(std::move(*spawn));
+    }
+  }
+}
+
+void checkCollisions(std::vector<GameObject>& objects) {
+  auto size = objects.size();
+  for (size_t i=0; i<size; i++) {
+    for (size_t j=i + 1; j<size; j++) {
+      auto spawn = objects[i].collision(objects[j]);
+      if (spawn != nullptr) {
+        objects.push_back(std::move(*spawn));
+      }
+    }
+  }
+}
+
 
 int main() {
-  GameObject::width = WindowWidth;
-  GameObject::height = WindowHeight;
-
   srand(time(NULL));
 
+  AsteroidsGame game{};
   Window window{};
 
-  int score = 0;
+  int tick = 0;
 
-  // Vector of pointers to all game objects
-  vector<unique_ptr<GameObject>> gameObjects;
-
-  gameObjects.push_back(make_unique<Spaceship>());
-
-
-  unsigned c = 0;
-  bool gameOver = false;
-  try {
-
-  while (window.isOpen()) {
-    c++;
-    if (c % 64 == 0) {  // Adds a random asteroid every 8th iteration
-      int size = rand() % 3;
-      int startX = -50 + (rand() % 2) * (WindowWidth + 100);
-      int startY = -50 + (rand() % 2) * (WindowHeight + 100);
-      gameObjects.push_back(make_unique<Asteroid>(size, startX, startY));
-    }
+  for (; window.isOpen(); tick++) {
 
     sf::Event event{};
-
     while (window.pollEvent(event)) {
-      switch (event.type) {
-        case sf::Event::Closed:
-          {
-          window.close();
-          break;
-          }
-        case sf::Event::KeyPressed:
-          {
-          if (event.key.code == sf::Keyboard::Key::Escape) {
-            window.close();
-          } else if (event.key.code == sf::Keyboard::Key::Space) {
-
-            auto spawn = gameObjects[0]->spawnObject();  // Spaceship is allways at index 0
-            assert(gameObjects[0]->getType() == SPACESHIP);
-            assert(spawn != nullptr);
-            gameObjects.push_back(move(spawn));
-          }
-          else if (event.key.code == sf::Keyboard::Key::Return) {  // Begin anew
-            gameObjects.clear();
-            gameObjects.push_back(make_unique<Spaceship>());
-            score = 0;
-            window.formatScoreText();
-            gameOver = false;
-          }
-
-          if (event.key.code == sf::Keyboard::Key::Left) {
-            //rotate left
-            gameObjects[0]->rotateLeft();
-          }
-          else if (event.key.code == sf::Keyboard::Key::Right) {
-            //rotate right
-            gameObjects[0]->rotateRight();
-          }
-          //go forward
-          if (event.key.code == sf::Keyboard::Key::Up) {
-            gameObjects[0]->goStraight();
-          }
-          break;
-          }
-        default:
-          break;
+      if (event.type == sf::Event::Closed) {
+        window.close();
+      }
+      if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Return)) {
+        window.formatScoreText();
+        game = AsteroidsGame{};
+      }
+      if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+        window.close();
       }
     }
 
-    vector<unique_ptr<Asteroid>> newAsteroids;
-    for (auto& obj : gameObjects) {
-      obj->update();
-      for (auto& rhs : gameObjects) {
-        assert(rhs != nullptr && obj != nullptr);
-        if (obj != rhs && obj->collision(*rhs)) {
-          if (obj->getType() == SPACESHIP || rhs->getType() == SPACESHIP) {
-            //gameOver = true;
-          } else if (obj->getType() == BULLET || rhs->getType() == BULLET) {
-            if (obj->getType() == SPACESHIP || rhs->getType() == SPACESHIP) {
-              continue;
-            }
-            score += 1;
-            obj->deleteMe = true;
-            rhs->deleteMe = true;
-            if (obj->getType() == ASTEROID) {
-              gameObjects.push_back(obj->spawnObject());
-              gameObjects.push_back(obj->spawnObject());
-            }
-            if (rhs->getType() == ASTEROID) {
-              gameObjects.push_back(rhs->spawnObject());
-              gameObjects.push_back(rhs->spawnObject());
-            }
-          }
-          break;
-        }
+    updatePositions(game.objects);
+
+    if (tick % 16 == 0) {
+      game.objects.push_back(Asteroid::randomAsteroid());
+      if (tick % 32 == 0) {
+        checkCollisions(game.objects);
       }
     }
 
-    for (auto& a : newAsteroids) {
-      gameObjects.push_back(move(a));
-    }
+    // Remove deleted objects
+    game.objects.erase(
+        std::remove_if(game.objects.begin(), game.objects.end(),
+          [](const auto &object) { return object.isDeleted(); }),
+        game.objects.end());
 
-    auto it = gameObjects.begin();
-    while (it != gameObjects.end()) {
-      if ((*it)->deleteMe) {
-        it = gameObjects.erase(it);
-      } else {
-        ++it;
-      }
-    }
-
-    if (!gameOver) {
+    if (!game.gameOver) {
       window.clear();
-      for (const auto& obj : gameObjects) {
-        window.drawGameObject(obj.get());
+      for (const auto &obj : game.objects) {
+        window.drawGameObject(obj);
       }
-      window.setText(std::to_string(score));
+      window.setText(std::to_string(game.score));
     } else {
       window.formatEndText();
       window.setText("Game Over!");
     }
     window.updateFrame();
-  }
-  }
-  catch (...) {
-    std::cout << "Exception caught!\n";
-    return -1;
   }
 
   return 0;

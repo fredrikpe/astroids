@@ -22,26 +22,8 @@ const std::string WindowTitle{ "Asteroids" };
 const int WindowHeight = 1000;
 const int WindowWidth = 1000;
 
-
-std::string spriteFilename(Type type) {
-  switch (type) {
-    case Type::SPACESHIP:
-      return "res/spaceship.png";
-    case Type::BULLET:
-      return "res/bullet.png";
-    case Type::ASTEROID:
-      return "res/asteroid.png";
-    default:
-      //throw std::exception("Error. Unknown game object.");
-      assert(false);
-      //throw std::exception();
-      //assert(false);
-  }
-}
-
 struct Sprite {
-  explicit Sprite(Type type) {
-    const auto filename = spriteFilename(type);
+  explicit Sprite(const std::string& filename) {
     if (!image.loadFromFile(filename)) {
       //throw std::exception("Failed to load " + filename + ".");
         assert(false);
@@ -85,12 +67,16 @@ class Window {
       render_window.display();
     }
 
-    void drawGameObject(const GameObject* object) {
-      auto sprite = Sprite(object->getType());
+    void drawGameObject(const GameObject& object) {
+      const auto filename = object.fileAndScaling().first;
+      const auto scaling = object.fileAndScaling().second;
 
-      sprite.sprite.scale(object->getScale(), object->getScale());
-      sprite.sprite.setPosition(object->pos_x, object->pos_y);
-      sprite.sprite.setRotation(object->rotation);
+      auto sprite = Sprite(filename);
+      const auto physicsForm = object.form();
+
+      sprite.sprite.scale(scaling, scaling);
+      sprite.sprite.setPosition(physicsForm.pos_x, physicsForm.pos_y);
+      sprite.sprite.setRotation(physicsForm.rotation);
 
       render_window.draw(sprite.sprite);
 
