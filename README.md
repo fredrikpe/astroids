@@ -1,5 +1,7 @@
 # astroids
-Simple asteroids game using SFML.
+Simple asteroids game using SFML. Testing Concept Model Polymorphism.
 
-Installation:
-  make
+Installation (ubuntu 16):
+ sudo apt install libsfml-dev
+ make
+
