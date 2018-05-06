@@ -51,7 +51,7 @@ class Window {
       : render_window(sf::VideoMode(WindowWidth, WindowHeight), WindowTitle)
     {
       if (!font.loadFromFile("res/OpenSans-Bold.ttf")) {
-        cout << "Couldn't open font!\n";
+        std::cout << "Couldn't open font!\n";
         //throw std::exception("Couldn't open font!\n");
         //throw std::exception();
         assert(false);

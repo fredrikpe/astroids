@@ -9,11 +9,14 @@
 #include "gameobjects.h"
 
 
-
-using namespace std;
-
 const int width = 1000;
 const int height = 1000;
+
+const double SpaceshipVelocity = 240.0;
+const double SpaceshipRotationSpeed = 200.0;
+const double BulletVelocity = 300.0;
+const double AsteroidVelocity = 25.0;
+
 
 Spaceship::Spaceship()
 {
@@ -21,27 +24,35 @@ Spaceship::Spaceship()
   form.pos_x = width / 2;
   form.pos_y = height / 2;
   form.radius = 20;
-  form.velocity = 3.0;
+  form.velocity = SpaceshipVelocity;
+  rotationSpeed = SpaceshipRotationSpeed;
 }
 
-unique_ptr<GameObject> Spaceship::shoot()
+std::unique_ptr<GameObject> Spaceship::shoot()
 {
+  if (last_shot > 0) {
+    return nullptr;
+  }
+  last_shot = 10;
+
   double angle = form.rotation / 180.0 * PI;
   double x = form.pos_x + 35*sin(angle);
   double y = form.pos_y - 35*cos(angle);
 
-  return make_unique<GameObject>(Bullet{form.rotation, x, y});
+  return std::make_unique<GameObject>(Bullet{form.rotation, x, y});
 }
 
-std::unique_ptr<GameObject> Spaceship::update(const Actions& actions) {
+std::unique_ptr<GameObject> Spaceship::update(const Actions& actions, double dt) {
+  last_shot--;
+
   if (actions.moveStraight) {
-    form.goStraight();
+    form.goStraight(dt);
   }
   if (actions.rotateLeft) {
-    form.rotate(rotationSpeed);
+    form.rotate(rotationSpeed, dt);
   }
   if (actions.rotateRight) {
-    form.rotate(-rotationSpeed);
+    form.rotate(-rotationSpeed, dt);
   }
   if (actions.shoot) {
     return shoot();
@@ -54,7 +65,7 @@ Bullet::Bullet(double rotation, double x, double y)
   form.pos_x = x;
   form.pos_y = y;
   form.rotation = rotation;
-  form.velocity = 5;
+  form.velocity = BulletVelocity;
   form.radius = 2;
 }
 
@@ -82,15 +93,14 @@ Asteroid::Asteroid(int _size, double x, double y)
   if (size < 0) deleted = true;
 
   form.rotation = rand() % 360;
-  size = size;
 
-  form.velocity = (3 - size)*0.3;
+  form.velocity = (3 - size) * AsteroidVelocity;
   form.radius = (size + 2) * 8;
 }
 
-unique_ptr<GameObject> Asteroid::spawnObject()
+std::unique_ptr<GameObject> Asteroid::spawnObject()
 {
-  return make_unique<GameObject>(smallerAsteroid());
+  return std::make_unique<GameObject>(smallerAsteroid());
 }
 
 bool Asteroid::isOutside() const

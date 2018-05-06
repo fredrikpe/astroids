@@ -18,10 +18,10 @@
 #include <cstdlib> 
 #include <cmath>
 #include <algorithm>
+#include <chrono>
 
 #define PI 3.14159265;
 
-using namespace std;
 
 enum class ObjectType { Spaceship, Bullet, Asteroid };
 
@@ -45,14 +45,14 @@ struct PhysicsForm {
     return distance < radius + other.radius;
   }
 
-  void goStraight() {
+  void goStraight(double dt) {
     double angle = rotation / 180.0 * PI;
-    pos_x += velocity*sin(angle);
-    pos_y += -velocity*cos(angle);
+    pos_x += velocity * sin(angle) * dt;
+    pos_y += -velocity * cos(angle) * dt;
   }
   
-  void rotate(double angle) {
-    rotation += angle;
+  void rotate(double angle, double dt) {
+    rotation += angle * dt;
   }
 };
 
@@ -64,10 +64,10 @@ class GameObject {
     : model(std::make_unique<Model<T>>(std::move(t)))
     {}
 
-    std::unique_ptr<GameObject> update(const Actions& actions) {
-      return model->update(actions);
+    std::unique_ptr<GameObject> update(const Actions& actions, double dt) {
+      return model->update(actions, dt);
     }
-    std::unique_ptr<GameObject> collision(const GameObject& other) {
+    std::unique_ptr<GameObject> collision(GameObject& other) {
       return model->collision(other);
     }
     PhysicsForm form() const {
@@ -75,6 +75,9 @@ class GameObject {
     }
     bool isDeleted() const {
       return model->isDeleted();
+    }
+    void setDeleted() {
+      model->setDeleted();
     }
     std::pair<std::string, double> fileAndScaling() const {
       return model->fileAndScaling();
@@ -87,10 +90,11 @@ class GameObject {
   private:
     struct Concept {
       virtual ~Concept() = default;
-      virtual std::unique_ptr<GameObject> update(const Actions& actions) = 0;
-      virtual std::unique_ptr<GameObject> collision(const GameObject& other) = 0;
+      virtual std::unique_ptr<GameObject> update(const Actions& actions, double dt) = 0;
+      virtual std::unique_ptr<GameObject> collision(GameObject& other) = 0;
       virtual PhysicsForm form() const = 0;
       virtual bool isDeleted() const = 0;
+      virtual void setDeleted() = 0;
       virtual std::pair<std::string, double> fileAndScaling() const = 0;
       virtual ObjectType type() const = 0;
     };
@@ -101,8 +105,8 @@ class GameObject {
       : data(std::move(t))
       {}
 
-      std::unique_ptr<GameObject> update(const Actions& actions) override {
-        return data.update(actions);
+      std::unique_ptr<GameObject> update(const Actions& actions, double dt) override {
+        return data.update(actions, dt);
       }
 
       PhysicsForm form() const override {
@@ -117,7 +121,11 @@ class GameObject {
         return data.deleted;
       }
 
-      std::unique_ptr<GameObject> collision(const GameObject& other) override {
+      void setDeleted() override {
+        data.deleted = true;
+      }
+
+      std::unique_ptr<GameObject> collision(GameObject& other) override {
         return data.collision(other);
       }
 
@@ -135,9 +143,9 @@ class Spaceship {
   public:
     Spaceship();
 
-    std::unique_ptr<GameObject> update(const Actions& actions);
+    std::unique_ptr<GameObject> update(const Actions& actions, double dt);
 
-    std::unique_ptr<GameObject> collision(const GameObject& other) {
+    std::unique_ptr<GameObject> collision(GameObject& other) {
       if (form.isCollision(other.form())) {
         deleted = true;
       }
@@ -145,7 +153,7 @@ class Spaceship {
     }
 
     bool isOutside(int, int) const { return false; }
-    unique_ptr<GameObject> shoot();
+    std::unique_ptr<GameObject> shoot();
 
     std::pair<std::string, double> fileAndScaling() const {
       return std::make_pair("res/spaceship.png", 0.5);
@@ -157,24 +165,27 @@ class Spaceship {
 
     bool deleted = false;
   private:
-    double rotationSpeed = 3.0;
+    double rotationSpeed = 0.0;
+    int last_shot        = 0;
 };
 
 class Bullet {
   public:
     Bullet(double rotation, double x, double y);
 
-    std::unique_ptr<GameObject> update(const Actions&) {
+    std::unique_ptr<GameObject> update(const Actions&, double dt) {
       if (isOutside()) {
         deleted = true;
       }
-      form.goStraight();
+      form.goStraight(dt);
       return nullptr;
     }
 
     std::unique_ptr<GameObject> collision(const GameObject& other) {
       if (form.isCollision(other.form())) {
-        deleted = true;
+        if (other.type() != type()) {
+          deleted = true;
+        }
       }
       return nullptr;
     }
@@ -196,17 +207,18 @@ class Asteroid {
   public:
     Asteroid(int size, double x, double y);
 
-    std::unique_ptr<GameObject> update(const Actions&) {
+    std::unique_ptr<GameObject> update(const Actions&, double dt) {
       if (isOutside()) {
         deleted = true;
       }
-      form.goStraight();
+      form.goStraight(dt);
       return nullptr;
     }
 
-    std::unique_ptr<GameObject> collision(const GameObject& other) {
+    std::unique_ptr<GameObject> collision(GameObject& other) {
       if (form.isCollision(other.form())) {
         if (other.type() != type()) {
+          other.setDeleted();
           *this = smallerAsteroid();
           return spawnObject();
         }
@@ -214,7 +226,7 @@ class Asteroid {
       return nullptr;
     }
 
-    unique_ptr<GameObject> spawnObject();
+    std::unique_ptr<GameObject> spawnObject();
 
     Asteroid smallerAsteroid() const {
       return Asteroid{size - 1, form.pos_x, form.pos_y};
