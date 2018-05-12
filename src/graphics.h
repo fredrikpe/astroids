@@ -8,25 +8,20 @@
 
 #pragma once
 
+#include "common.h"
+
 #include <SFML/Graphics.hpp>
 
 #include <array>
+#include <cassert>
+#include <exception>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <exception>
-#include <cassert>
-
-const std::string WindowTitle{ "Asteroids" };
-
-const int WindowHeight = 1000;
-const int WindowWidth = 1000;
 
 struct Sprite {
-  explicit Sprite(const std::string& filename) {
+  explicit Sprite(const std::string &filename) {
     if (!image.loadFromFile(filename)) {
-      //throw std::exception("Failed to load " + filename + ".");
-        assert(false);
       throw std::exception();
     }
 
@@ -35,7 +30,7 @@ struct Sprite {
     sprite.setTexture(texture);
 
     sprite.setOrigin(sprite.getTextureRect().width / 2,
-        sprite.getTextureRect().height / 2);
+                     sprite.getTextureRect().height / 2);
 
     sprite.setPosition(WindowWidth / 2, WindowHeight / 2);
   }
@@ -45,75 +40,81 @@ struct Sprite {
   sf::Sprite sprite;
 };
 
-class Window {
+class Gui {
+public:
+  bool isOpen() { return window.isOpen(); }
+
+  Actions parseInput() {
+    sf::Event event{};
+    window.pollEvent(event);
+
+    if ( // event.type == sf::Event::Closed ||
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+      window.close();
+    }
+
+    return Actions{sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up),
+                   sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left),
+                   sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right),
+                   sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space),
+                   sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Return)};
+  }
+
+  void render(const std::vector<GameObject> &objects) {
+    window.clear();
+    for (const auto &obj : objects) {
+      window.drawGameObject(obj);
+    }
+    window.updateFrame();
+  }
+
+private:
+  class Window {
   public:
     Window()
-      : render_window(sf::VideoMode(WindowWidth, WindowHeight), WindowTitle)
-    {
+        : render_window(sf::VideoMode(WindowWidth, WindowHeight), WindowTitle) {
       if (!font.loadFromFile("res/OpenSans-Bold.ttf")) {
-        std::cout << "Couldn't open font!\n";
-        //throw std::exception("Couldn't open font!\n");
-        //throw std::exception();
-        assert(false);
+        render_window.close();
       }
-
-      text.setFont(font);
-      text.setStyle(sf::Text::Bold);
-      formatScoreText();
     }
 
-    void updateFrame() {
-      render_window.draw(text);
-      render_window.display();
-    }
+    void updateFrame() { render_window.display(); }
 
-    void drawGameObject(const GameObject& object) {
+    void drawGameObject(const GameObject &object) {
       const auto filename = object.fileAndScaling().first;
       const auto scaling = object.fileAndScaling().second;
 
-      auto sprite = Sprite(filename);
-      const auto physicsForm = object.form();
+      try {
+        auto sprite = Sprite(filename);
+        const auto physicsForm = object.form();
 
-      sprite.sprite.scale(scaling, scaling);
-      sprite.sprite.setPosition(physicsForm.pos_x, physicsForm.pos_y);
-      sprite.sprite.setRotation(physicsForm.rotation);
+        sprite.sprite.scale(scaling, scaling);
+        sprite.sprite.setPosition(physicsForm.pos_x, physicsForm.pos_y);
+        sprite.sprite.setRotation(physicsForm.rotation);
 
-      render_window.draw(sprite.sprite);
+        render_window.draw(sprite.sprite);
 
-      sprites.push_back(std::move(sprite));
-
+        sprites.push_back(std::move(sprite));
+      } catch (...) {
+        render_window.close();
+        return;
+      }
     }
 
-    void clear() { 
+    void clear() {
       render_window.clear();
       sprites.clear();
     }
 
     bool isOpen() { return render_window.isOpen(); }
     void close() { render_window.close(); }
-    bool pollEvent(auto& event) { return render_window.pollEvent(event); }
-
-    void setText(const std::string& txt) {
-      text.setString(txt);
-    }
-
-    void formatScoreText() {
-      formatText(50, 50, 20, sf::Color::White);
-    }
-
-    void formatEndText() {
-      formatText(170, 300, 80, sf::Color::Green);
-    }
+    bool pollEvent(auto &event) { return render_window.pollEvent(event); }
 
   private:
-    void formatText(int pos_x, int pos_y, int size, auto color) {
-      text.setCharacterSize(size);
-      text.setColor(color);
-      text.setPosition(pos_x, pos_y);
-    }
-
     sf::RenderWindow render_window;
-    sf::Text         text;
-    sf::Font         font;
+    sf::Font font;
     std::vector<Sprite> sprites;
+  };
+
+  Window window;
 };

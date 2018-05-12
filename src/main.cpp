@@ -8,6 +8,7 @@
 
 #include "gameobjects.h"
 #include "graphics.h"
+#include "timer.h"
 
 #include <SFML/Graphics.hpp>
 
@@ -21,27 +22,12 @@
 #include <thread>
 #include <time.h>
 
-
-Actions parseInput() {
-  return Actions{
-    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up),
-    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left),
-    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right),
-    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space),
-  };
-}
-
 struct AsteroidsGame {
-  AsteroidsGame() {
-    objects.clear();
-    objects.push_back(Spaceship{});
-    score = 0;
-    gameOver = false;
-  }
+  AsteroidsGame() { objects.push_back(Spaceship{}); }
 
   void updatePositions(Actions actions, double dt) {
     auto size = objects.size();
-    for (size_t i=0; i<size; i++) {
+    for (size_t i = 0; i < size; i++) {
       auto spawn = objects[i].update(actions, dt);
       if (spawn != nullptr) {
         objects.push_back(std::move(*spawn));
@@ -51,91 +37,54 @@ struct AsteroidsGame {
 
   void checkCollisions() {
     auto size = objects.size();
-    for (size_t i=0; i<size; i++) {
-      for (size_t j=i + 1; j<size; j++) {
-        auto spawn = objects[i].collision(objects[j]);
-        if (spawn != nullptr) {
-          score++;
-          objects.push_back(std::move(*spawn));
-        }
+    for (size_t i = 0; i < size; i++) {
+      for (size_t j = i + 1; j < size; j++) {
+        objects[i].collision(objects[j]);
       }
     }
   }
 
   void removeDeleted() {
     objects.erase(
-      std::remove_if(objects.begin(), objects.end(),
-        [](const auto &object) { return object.isDeleted(); }),
-      objects.end());
+        std::remove_if(objects.begin(), objects.end(),
+                       [](const auto &object) { return object.isDeleted(); }),
+        objects.end());
   }
 
   std::vector<GameObject> objects;
-  int score = 0;
-  bool gameOver = false;
+  bool game_over = false;
 };
-
-void render(const AsteroidsGame& game, Window& window) {
-  if (!game.gameOver) {
-    window.clear();
-    for (const auto &obj : game.objects) {
-      window.drawGameObject(obj);
-    }
-    window.setText(std::to_string(game.score));
-  } else {
-    window.formatEndText();
-    window.setText("Game Over!");
-  }
-  window.updateFrame();
-}
 
 int main() {
   srand(time(NULL));
 
   AsteroidsGame game{};
-  Window        window{};
+  Gui gui{};
+  FrameTimer timer{};
 
-  double       t = 0.0;
-  const double dt = 0.01;
-  double       accumulator = 0.0;
-  auto         current_time = std::chrono::high_resolution_clock::now();
-        
-  while (window.isOpen()) {
-    
-    auto new_time = std::chrono::high_resolution_clock::now();
-    auto frame_time = std::chrono::duration<double>(
-        new_time - current_time).count();
+  try {
+    while (gui.isOpen()) {
 
-    current_time = new_time;
-    accumulator += frame_time;
+      timer.updateFrameTime();
 
-    game.objects.push_back(Asteroid::randomAsteroid());
+      game.objects.push_back(Asteroid::randomAsteroid());
 
-    while (accumulator >= dt) {
+      Actions actions = gui.parseInput();
 
-      sf::Event event{};
-      while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
-          window.close();
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Return)) {
-          window.formatScoreText();
-          game = AsteroidsGame{};
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
-          window.close();
-        }
+      while (timer.frame_time > 0) {
+        game.updatePositions(actions, timer.dt);
+
+        game.checkCollisions();
+
+        game.removeDeleted();
+
+        timer.frame_time -= timer.dt;
       }
 
-      game.updatePositions(parseInput(), dt);
-
-      game.checkCollisions();
-        
-      game.removeDeleted();
-
-      accumulator -= dt;
-      t += dt;
+      if (!game.game_over) {
+        gui.render(game.objects);
+      }
     }
-
-    render(game, window);
+  } catch (...) {
   }
 }
