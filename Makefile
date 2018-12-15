@@ -1,15 +1,15 @@
 
-CXX = g++
+CXX = g++-7
 
-CXXFLAGS = -O3 -g -Wall -Wextra -Werror -std=c++14
+CXXFLAGS = -O3 -g -Wall -Wextra -Werror -std=c++17
 
 LDFLAGS = -lsfml-window -lsfml-graphics -lsfml-system
 
 RM = rm -f
 
-SOURCES = src/main.cpp src/gameobjects.cpp
+SOURCES = src-variant/main.cpp src-variant/gameobjects.cpp
 
-EXECUTABLE = astroids
+EXECUTABLE = asteroids
 
 all: $(EXECUTABLE)
 
